@@ -24,15 +24,37 @@ namespace Modbus.ModbusFunctions
         /// <inheritdoc />
         public override byte[] PackRequest()
         {
-            //TO DO: IMPLEMENT
-            throw new NotImplementedException();
+            ModbusWriteCommandParameters cp = this.CommandParameters as ModbusWriteCommandParameters;
+            byte[] request = new byte[12];
+
+            Buffer.BlockCopy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((short)cp.TransactionId)), 0, request, 0, 2);
+            Buffer.BlockCopy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((short)cp.ProtocolId)), 0, request, 2, 2);
+            Buffer.BlockCopy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((short)cp.Length)), 0, request, 4, 2);
+
+            request[6] = cp.UnitId;
+            request[7] = cp.FunctionCode;
+
+            Buffer.BlockCopy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((short)cp.OutputAddress)), 0, request, 8, 2);
+
+            ushort valueToSend = (cp.Value == (ushort)DState.ON) ? (ushort)0xFF00 : (ushort)0x0000;
+            Buffer.BlockCopy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((short)valueToSend)), 0, request, 10, 2);
+
+            return request;
         }
 
         /// <inheritdoc />
         public override Dictionary<Tuple<PointType, ushort>, ushort> ParseResponse(byte[] response)
         {
-            //TO DO: IMPLEMENT
-            throw new NotImplementedException();
+            Dictionary<Tuple<PointType, ushort>, ushort> result = new Dictionary<Tuple<PointType, ushort>, ushort>();
+
+            ushort address = (ushort)IPAddress.NetworkToHostOrder((short)BitConverter.ToUInt16(response, 8));
+            ushort rawValue = (ushort)IPAddress.NetworkToHostOrder((short)BitConverter.ToUInt16(response, 10));
+
+            ushort value = (rawValue == 0xFF00) ? (ushort)DState.ON : (ushort)DState.OFF;
+
+            result.Add(new Tuple<PointType, ushort>(PointType.DIGITAL_OUTPUT, address), value);
+
+            return result;
         }
     }
 }
