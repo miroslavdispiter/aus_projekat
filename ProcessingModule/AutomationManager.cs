@@ -1,5 +1,6 @@
 ﻿using Common;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace ProcessingModule
@@ -58,15 +59,79 @@ namespace ProcessingModule
 		}
 
 
-		private void AutomationWorker_DoWork()
-		{
-			//while (!disposedValue)
-			//{
-			//}
-		}
+        private void AutomationWorker_DoWork()
+        {
+            EGUConverter eguConverter = new EGUConverter();
 
-		#region IDisposable Support
-		private bool disposedValue = false; // To detect redundant calls
+            PointIdentifier K = new PointIdentifier(PointType.ANALOG_OUTPUT, 2000);
+            PointIdentifier T1 = new PointIdentifier(PointType.DIGITAL_OUTPUT, 1000);
+            PointIdentifier T2 = new PointIdentifier(PointType.DIGITAL_OUTPUT, 1001);
+            PointIdentifier T3 = new PointIdentifier(PointType.DIGITAL_OUTPUT, 1002);
+            PointIdentifier T4 = new PointIdentifier(PointType.DIGITAL_OUTPUT, 1003);
+            PointIdentifier I1 = new PointIdentifier(PointType.DIGITAL_OUTPUT, 3000);
+            PointIdentifier I2 = new PointIdentifier(PointType.DIGITAL_OUTPUT, 3001);
+
+            List<PointIdentifier> allPoints = new List<PointIdentifier> { K, T1, T2, T3, T4, I1, I2 };
+
+            while (!disposedValue)
+            {
+                List<IPoint> points = storage.GetPoints(allPoints);
+
+                IAnalogPoint kPoint = points[0] as IAnalogPoint;
+                IDigitalPoint t1 = points[1] as IDigitalPoint;
+                IDigitalPoint t2 = points[2] as IDigitalPoint;
+                IDigitalPoint t3 = points[3] as IDigitalPoint;
+                IDigitalPoint t4 = points[4] as IDigitalPoint;
+                IDigitalPoint i1 = points[5] as IDigitalPoint;
+                IDigitalPoint i2 = points[6] as IDigitalPoint;
+
+                double K_value = kPoint.EguValue;
+                double lowLimit = kPoint.ConfigItem.LowLimit;
+                double eguMax = kPoint.ConfigItem.EGU_Max;
+
+                //ovo pise u napomeni napocetku
+                if (i1.RawValue == 1 && i2.RawValue == 1)
+                {
+                    processingManager.ExecuteWriteCommand(i1.ConfigItem, configuration.GetTransactionId(), configuration.UnitAddress, i1.ConfigItem.StartAddress, 0);
+                }
+
+                if (K_value < lowLimit)
+                {
+                    //task1
+                    if (t4.RawValue == 1)
+                    {
+                        processingManager.ExecuteWriteCommand(t4.ConfigItem, configuration.GetTransactionId(), configuration.UnitAddress, t4.ConfigItem.StartAddress, 0);
+                    }
+                    if (i2.RawValue != 1)
+                    {
+                        processingManager.ExecuteWriteCommand(i2.ConfigItem, configuration.GetTransactionId(), configuration.UnitAddress, i2.ConfigItem.StartAddress, 1);
+
+                        if (i1.RawValue == 1)
+                        {
+                            processingManager.ExecuteWriteCommand(i1.ConfigItem, configuration.GetTransactionId(), configuration.UnitAddress, i1.ConfigItem.StartAddress, 0);
+                        }
+
+                    }
+                }
+
+                //task2
+                if (K_value >= eguMax)
+                {
+                    if (i1.RawValue == 1)
+                    {
+                        processingManager.ExecuteWriteCommand(i1.ConfigItem, configuration.GetTransactionId(), configuration.UnitAddress, i1.ConfigItem.StartAddress, 0);
+                    }
+                    if (i2.RawValue == 1)
+                    {
+                        processingManager.ExecuteWriteCommand(i2.ConfigItem, configuration.GetTransactionId(), configuration.UnitAddress, i2.ConfigItem.StartAddress, 0);
+                    }
+                }
+                automationTrigger.WaitOne(delayBetweenCommands);
+            }
+        }
+
+        #region IDisposable Support
+        private bool disposedValue = false; // To detect redundant calls
 
 
         /// <summary>
