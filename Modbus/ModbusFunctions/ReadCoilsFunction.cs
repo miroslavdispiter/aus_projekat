@@ -24,15 +24,44 @@ namespace Modbus.ModbusFunctions
         /// <inheritdoc/>
         public override byte[] PackRequest()
         {
-            //TO DO: IMPLEMENT
-            throw new NotImplementedException();
+            ModbusReadCommandParameters cp = this.CommandParameters as ModbusReadCommandParameters;
+
+            byte[] request = new byte[12];
+
+            Buffer.BlockCopy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((short)cp.TransactionId)), 0, request, 0, 2);
+            Buffer.BlockCopy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((short)cp.ProtocolId)), 0, request, 2, 2);
+            Buffer.BlockCopy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((short)cp.Length)), 0, request, 4, 2);
+
+            request[6] = cp.UnitId;
+            request[7] = cp.FunctionCode;
+
+            Buffer.BlockCopy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((short)cp.StartAddress)), 0, request, 8, 2);
+            Buffer.BlockCopy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((short)cp.Quantity)), 0, request, 10, 2);
+
+            return request;
         }
 
-        /// <inheritdoc />
         public override Dictionary<Tuple<PointType, ushort>, ushort> ParseResponse(byte[] response)
         {
-            //TO DO: IMPLEMENT
-            throw new NotImplementedException();
+            ModbusReadCommandParameters cp = this.CommandParameters as ModbusReadCommandParameters;
+            Dictionary<Tuple<PointType, ushort>, ushort> d = new Dictionary<Tuple<PointType, ushort>, ushort>();
+
+            int q = response[8];
+
+            for (int i = 0; i < q; i++)
+            {
+                for (int j = 0; j < 8; j++)
+                {
+                    if (cp.Quantity < (j + i * 8)) { break; }
+
+                    ushort v = (ushort)(response[9 + i] & (byte)0x1);
+                    response[9 + i] /= 2;
+
+                    d.Add(new Tuple<PointType, ushort>(PointType.DIGITAL_OUTPUT, (ushort)(cp.StartAddress + (j + i * 8))), v);
+                }
+            }
+
+            return d;
         }
     }
 }
