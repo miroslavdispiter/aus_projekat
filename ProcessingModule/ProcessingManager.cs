@@ -42,6 +42,16 @@ namespace ProcessingModule
         /// <inheritdoc />
         public void ExecuteWriteCommand(IConfigItem configItem, ushort transactionId, byte remoteUnitAddress, ushort pointAddress, int value)
         {
+            if (configItem.RegistryType == PointType.DIGITAL_OUTPUT && value == 1 && (configItem.StartAddress == 1000 || configItem.StartAddress == 1001 || configItem.StartAddress == 1002))
+            {
+                IAnalogPoint kPoint = storage.GetPoints(new List<PointIdentifier> { new PointIdentifier(PointType.ANALOG_OUTPUT, 2000) }).First() as IAnalogPoint;
+
+                if (kPoint != null && kPoint.EguValue <= kPoint.ConfigItem.LowLimit)
+                {
+                    return;
+                }
+            }
+
             if (configItem.RegistryType == PointType.ANALOG_OUTPUT)
             {
                 ExecuteAnalogCommand(configItem, transactionId, remoteUnitAddress, pointAddress, value);
@@ -78,7 +88,7 @@ namespace ProcessingModule
         private void ExecuteAnalogCommand(IConfigItem configItem, ushort transactionId, byte remoteUnitAddress, ushort pointAddress, int value)
         {
             ushort rawValue = eguConverter.ConvertToRaw(configItem.ScaleFactor, configItem.Deviation, value);
-            ModbusWriteCommandParameters p = new ModbusWriteCommandParameters(6, (byte)ModbusFunctionCode.WRITE_SINGLE_REGISTER, pointAddress, (ushort)value, transactionId, remoteUnitAddress);
+            ModbusWriteCommandParameters p = new ModbusWriteCommandParameters(6, (byte)ModbusFunctionCode.WRITE_SINGLE_REGISTER, pointAddress, rawValue, transactionId, remoteUnitAddress);
             IModbusFunction fn = FunctionFactory.CreateModbusFunction(p);
             this.functionExecutor.EnqueueCommand(fn);
         }
