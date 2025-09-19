@@ -62,6 +62,7 @@ namespace ProcessingModule
         private void AutomationWorker_DoWork()
         {
             EGUConverter eguConverter = new EGUConverter();
+            DateTime lastUpdate = DateTime.Now;
 
             PointIdentifier K = new PointIdentifier(PointType.ANALOG_OUTPUT, 2000);
             PointIdentifier T1 = new PointIdentifier(PointType.DIGITAL_OUTPUT, 1000);
@@ -88,6 +89,29 @@ namespace ProcessingModule
                 double K_value = kPoint.EguValue;
                 double lowLimit = kPoint.ConfigItem.LowLimit;
                 double eguMax = kPoint.ConfigItem.EGU_Max;
+
+                if ((DateTime.Now - lastUpdate).TotalSeconds >= 1)
+                {
+                    lastUpdate = DateTime.Now;
+
+                    if (t1.RawValue == 1) K_value -= 1;
+                    if (t2.RawValue == 1) K_value -= 1;
+                    if (t3.RawValue == 1) K_value -= 1;
+                    if (t4.RawValue == 1) K_value -= 3;
+                    if (i1.RawValue == 1) K_value += 2;
+                    if (i2.RawValue == 1) K_value += 3;
+
+                    if (K_value < 0) K_value = 0;
+                    if (K_value > 100) K_value = 100;
+
+                    processingManager.ExecuteWriteCommand(
+                        kPoint.ConfigItem,
+                        configuration.GetTransactionId(),
+                        configuration.UnitAddress,
+                        kPoint.ConfigItem.StartAddress,
+                        (int)K_value
+                    );
+                }
 
                 //ovo pise u napomeni napocetku
                 if (i1.RawValue == 1 && i2.RawValue == 1)
